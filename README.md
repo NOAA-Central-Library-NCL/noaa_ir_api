@@ -9,14 +9,14 @@ The following Python scripts allow you to interact with the JSON API.
 
 ### CLI Menu
 
-This tool provides a menu to view or individual collections as well as download all items from IR. All packages used within the files are builtins, with the exception of requests.
+This tool provides a menu to view individual collections as well as download all items from IR. All libraries used within the files are built-ins, with the exception of requests.
 
-### Usage
+#### Usage
 
-Download ```api_query.py``` and ```menu.py``` and place in the same. Run python menu.py in the shell or terminal. Doing so start the following menu:
+Download ```api_query.py``` and ```menu.py``` and place in the same directory. Run python ```menu.py``` in the shell or terminal. Doing so start the following menu:
 
 ```
-Query NOAA Resposistory JSON REST API
+Query NOAA Repository JSON REST API
 
 1. Get CSV of collection
 2. Get CSV of all items
@@ -24,3 +24,9 @@ Query NOAA Resposistory JSON REST API
 ```
 
 You can also use ```api_query.py``` which menu.py uses as to retrieve data from the JSON API.
+
+### Stats
+
+Use ```stats.py``` to call to NOAA IR's JSON API using the requests library and transform collections into pandas Dataframes enabling quick analysis.
+
+Methods have been written to enable facet analysis, which can be tricky as the NOAA IR JSON API packs multiple values into a single field.
