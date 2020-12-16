@@ -56,7 +56,7 @@ class RepositoryQuery(Fields):
         self.pid = ''
         self.collection_data = []
         self.all_collection_data = []
-        self.api_url =  "https://repository.library.noaa.gov/fedora/export/download/collection/"
+        self.api_url =  "https://repository.library.noaa.gov/fedora/export/download/collection/noaa:"
         self.date_params = {}
 
 

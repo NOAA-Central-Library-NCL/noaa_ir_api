@@ -3,7 +3,7 @@ from datetime import datetime
 import requests
 import pandas as pd
 
-pd.options.display.max_rows = 10 
+pd.options.display.max_rows = 10
 
 
 """Class used to create statistical data."""
@@ -12,7 +12,7 @@ class StatsData():
 
 
     # class variables
-    baseurl = 'https://repository.library.noaa.gov/fedora/export/download/collection/'
+    baseurl = 'https://repository.library.noaa.gov/fedora/export/download/collection/noaa:'
 
     #instance variables
     def __init__(self, *resource, pid_info=None):
@@ -38,7 +38,7 @@ class StatsData():
 
         url = self.baseurl + get_pid(pid, self.pid_info)
         r = check_url_status(url) # check url status
-    
+
         df = get_dataframe_from_response(r, self.resource)
 
         df['PID'] = df['PID'].str.replace('noaa:', '')
@@ -52,25 +52,25 @@ class StatsData():
         Parameters:
             df: Pandas dataframe.
         """
-        
+
         try:
             # ensures values are converted from strings from list
             df = convert_df_list_to_str(df, 'mods.sm_localcorpname').copy()
 
             split_df = split_facets(df, 'mods.sm_localcorpname')
-    
+
             facet_count = pd.melt(split_df)['value'].value_counts()
 
         except TypeError:
             print('You must pass a DataFrame as an argumet')
             facet_count = None
-        
+
         return facet_count
 
 
     def get_facet_pid_info(self,df):
         """
-        Lists Single facet alongside PID. 
+        Lists Single facet alongside PID.
 
         Parameters:
             df: Pandas dataframe.
@@ -82,7 +82,7 @@ class StatsData():
             df = convert_df_list_to_str(df, 'mods.sm_localcorpname').copy()
 
             split_df = split_facets(df, 'mods.sm_localcorpname')
-    
+
             # joins split and df on index
             join_df = split_df.join(df['PID'])
 
@@ -94,10 +94,10 @@ class StatsData():
         except TypeError:
             print('You must pass a DataFrame as an argumet')
             melt_df = None
-        
+
         return melt_df[melt_df['value'].notnull()]
 
-    
+
     def facet_count_multiple(self):
         """
         Provides facet counts for all collections.
@@ -128,7 +128,7 @@ def normalize_doc_types(x):
     """
     x = x.lower()
     return x.title()
-  
+
 
 def check_if_list(x):
     """Pandas custom function to check if column values are list objects
@@ -189,8 +189,8 @@ def convert_df_list_to_str(df, resource):
     if any(df[resource].apply(check_if_list)) == True:
         df[resource] = df[resource].str.join(',')
 
-    
-    if resource == 'mods.type_of_resource': 
+
+    if resource == 'mods.type_of_resource':
 
         # new rows are created if there are more than document type
         # associated with a record
@@ -224,14 +224,14 @@ def split_facets(df, resource):
 
     # update delimiter between facets
     df[resource] = df[resource].str.replace(", "," ")
-    df[resource] = df[resource].str.replace(",","; ") 
+    df[resource] = df[resource].str.replace(",","; ")
 
     return df[resource].str.split('; ',expand=True)
 
 
 def get_pid(value, pid_info):
     """
-    Returns pid collection value whether collection name or 
+    Returns pid collection value whether collection name or
     pid number is entered.
     Paramters:
         value: collection name or pid number of collection
@@ -249,12 +249,18 @@ def get_pid(value, pid_info):
             count += 1
             if count > len(pid_info):
                 raise ValueError('Invalid pid. Enter value from pid_info')
-           
+
     return match
 
 
 if __name__ == "__main__":
     pass
     s = StatsData('mods.sm_localcorpname',
-        pid_info={'OAR': '7','NWS':'6', 'NESDIS':'9'})
-  
+        pid_info={
+        'NMFS': '5',
+        'NOS': '8',
+        'OAR': '7',
+        'NWS':'6',
+        'NESDIS':'9',
+        'CIs': '23649'
+        })
