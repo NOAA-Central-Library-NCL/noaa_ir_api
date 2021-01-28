@@ -10,21 +10,7 @@ Classes used to query IR and export output:
 
 """
 
-class Fields():
-
-    fields = [ 'PID', 'mods.title', 'mods.type_of_resource',
-    'mods.related_series', 'mods.sm_digital_object_identifier',
-    'fgs.createdDate']
-
-    def append_field(self, value):
-        """Append a single string value to list"""
-        if not isinstance(value, str):
-            print('Value is not a string. Try again.')
-        else:
-            self.fields.append(value)
-
-
-class RepositoryQuery(Fields):
+class RepositoryQuery():
     """Query class used to interact with NOAA Repository JSON API"""
 
     item_url = "https://repository.library.noaa.gov/view/noaa/"
@@ -51,8 +37,8 @@ class RepositoryQuery(Fields):
                 "Cooperative Science Centers": "24914"
             }
 
-    def __init__(self):
-        super().__init__() # inherit fields
+    def __init__(self, fields):
+        self.fields = fields
         self.pid = ''
         self.collection_data = []
         self.all_collection_data = []
@@ -159,7 +145,7 @@ class RepositoryQuery(Fields):
             yield self.get_collection_json(collection)
 
 
-class DataExporter(Fields):
+class DataExporter():
     """Class used to export data."""
 
     date_info = datetime.now().strftime("%Y_%m_%d") + ".csv"
@@ -193,11 +179,11 @@ class DataExporter(Fields):
             encoding='utf-8') as fh:
 
             csvfile = csv.writer(fh,
-                delimiter='|',
+                delimiter='\t',
                 quoting=csv.QUOTE_NONE,
                 quotechar='')
 
-            csvfile.writerow(self.fields)
+            csvfile.writerow(repository_query.fields)
             for row in records:
                 csvfile.writerow(row)
 
@@ -232,7 +218,7 @@ class DataExporter(Fields):
             newline='', encoding='utf-8') as fh:
 
             csvfile = csv.writer(fh,
-                delimiter='|',
+                delimiter='\t',
                 quoting=csv.QUOTE_NONE,
                 quotechar='')
 
@@ -246,7 +232,7 @@ class DataExporter(Fields):
         # deduplicate files
 
         f = list(set(open(collections_full_path,encoding='utf-8').readlines()))
-        f.insert(0,'|'.join(self.fields) + '\n')
+        f.insert(0,'|'.join(repository_query.fields) + '\n')
         open(deduped_collections_full_path,'w', encoding='utf-8').writelines(f)
         os.remove(collections_full_path)
 
@@ -354,9 +340,12 @@ def date_param_format(date):
 if __name__ == "__main__":
     import csv
     # example
+    fields = ['PID', 'mods.title', 'mods.type_of_resource',
+        'fgs.createdDate', 'mods.sm_digital_object_identifier',
+        'mods.related_series', 'mods.sm_localcorpname']
 
-    q = RepositoryQuery()
-    q.date_filter('2020-07-01')
+    q = RepositoryQuery(fields)
+    # q.date_filter('2020-07-01')
 
 
     de = DataExporter()

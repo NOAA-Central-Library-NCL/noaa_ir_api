@@ -8,7 +8,7 @@ rcParams.update({'figure.autolayout': True})
 def reformat_column(column):
 
     return column.replace(' ','_').lower()
-    
+
 def get_count(column):
     """
     Get count of column passed.
@@ -16,7 +16,7 @@ def get_count(column):
     Returns:
         CSV of frequency table and
         matplotlib plot
-    
+
     """
 
     # document type counts
@@ -33,7 +33,7 @@ def get_count(column):
     #plot document type counts
     counts.plot.barh(
         x=column,
-        y='Count', 
+        y='Count',
         title= f'Total Count to Date (as of FY{qt_info})',
         legend=False
         ).invert_yaxis()
@@ -78,7 +78,7 @@ if __name__ == "__main__":
     qt_info = sys.argv[2]
 
     df = pd.read_csv(input_file)
-
+    
     get_count('Document Type')
     get_count('Published Year')
 
