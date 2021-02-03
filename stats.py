@@ -1,4 +1,4 @@
-import sys, csv, os
+import sys, csv, os, re
 from datetime import datetime
 import requests
 import pandas as pd
@@ -27,7 +27,7 @@ class StatsData():
 
     def get_df(self,pid):
         """
-        Gets all collection data. Returns a df
+        Gets collection data. Returns a df
 
         Parameters:
             pid: collection pid.
@@ -45,19 +45,47 @@ class StatsData():
 
         return df
 
-    def facet_count_single(self,df):
+
+    def get_df_from_export(self, f_name):
+        """
+        Get collection data from export metadata Excel sheet. Returns
+        a aandas DataFrame
+
+        Parameter:
+            pandas dataframa of collection data
+        """
+
+        df = pd.read_excel(f_name)
+
+        df.columns = df.columns.str.lower()
+        df.columns = df.columns.str.replace('sm:','mods.sm_')
+        df.columns = df.columns.str.replace(' ','_')
+
+        return df
+
+
+    def facet_count_single(self,df,df_type, normalize=None):
         """
         Provides facet count for individual collections.
 
         Parameters:
             df: Pandas dataframe.
+            df_type: choice between 'api' or 'export'. passed as arg into
+            split_facets .
         """
+
+        #option to normalize data before processin
+        if normalize == 'yes':
+            df['mods.sm_localcorpname'] = df['mods.sm_localcorpname'].apply(
+                normalize_data)
+        else:
+            pass
 
         try:
             # ensures values are converted from strings from list
             df = convert_df_list_to_str(df, 'mods.sm_localcorpname').copy()
 
-            split_df = split_facets(df, 'mods.sm_localcorpname')
+            split_df = split_facets(df, 'mods.sm_localcorpname', df_type)
 
             facet_count = pd.melt(split_df)['value'].value_counts()
 
@@ -65,7 +93,7 @@ class StatsData():
             print('You must pass a DataFrame as an argumet')
             facet_count = None
 
-        return facet_count
+        return facet_count.reset_index()
 
 
     def get_facet_pid_info(self,df):
@@ -116,18 +144,9 @@ class StatsData():
 
         facet_count = pd.melt(split_df)['value'].value_counts()
 
-        return facet_count
+        # use reset_index to return a Dataframe object
+        return facet_count.reset_index()
 
-
-# functions used in Class methods
-def normalize_doc_types(x):
-    """
-    Use as a Pandas custom function within get_collection data function
-    Parameters:
-        x: pandas column value.
-    """
-    x = x.lower()
-    return x.title()
 
 
 def check_if_list(x):
@@ -208,13 +227,10 @@ def convert_df_list_to_str(df, resource):
 
             df = df.append([one, two], ignore_index=True).copy()
 
-        # function is only applicable for doc types
-        df[resource] = df[resource].apply(normalize_doc_types)
-
     return df
 
 
-def split_facets(df, resource):
+def split_facets(df, resource, df_type):
     """
     Split facets into a their own separate columns.
     Parameters:
@@ -223,10 +239,21 @@ def split_facets(df, resource):
     """
 
     # update delimiter between facets
-    df[resource] = df[resource].str.replace(", "," ")
-    df[resource] = df[resource].str.replace(",","; ")
+    if df_type == 'api':
 
-    return df[resource].str.split('; ',expand=True)
+        df[resource] = df[resource].str.replace(", "," ")
+        df[resource] = df[resource].str.replace(",","; ")
+
+        return df[resource].str.split('; ',expand=True)
+
+    elif df_type == 'export':
+
+        df[resource] = df[resource].str.replace("\n","; ")
+        # df[resource] = df[resource].str.replace(",","; ")
+
+        return df[resource].str.split('; ',expand=True)
+    else:
+        raise Exception('df type must be either "api" or "export"')
 
 
 def get_pid(value, pid_info):
@@ -252,6 +279,12 @@ def get_pid(value, pid_info):
 
     return match
 
+def normalize_data(value):
+
+    value = re.sub(r'[()]','',value)
+    value = value.lower()
+    return value
+
 
 if __name__ == "__main__":
     pass
@@ -264,3 +297,7 @@ if __name__ == "__main__":
         'NESDIS':'9',
         'CIs': '23649'
         })
+
+    # df = s.get_df('6')
+    # df.loc[~df[s.resource].str.contains(
+    #     'NWS \('),['mods.title','PID', s.resource]]
