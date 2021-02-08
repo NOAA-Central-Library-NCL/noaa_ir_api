@@ -1,4 +1,4 @@
-import os, csv, sys, re
+import os, csv, sys, re, json
 from datetime import datetime
 import requests
 
@@ -9,6 +9,7 @@ Classes used to query IR and export output:
 - DataExporter
 
 """
+
 
 class RepositoryQuery():
     """Query class used to interact with NOAA Repository JSON API"""
@@ -41,8 +42,7 @@ class RepositoryQuery():
         self.fields = fields
         self.pid = ''
         self.collection_data = []
-        self.all_collection_data = []
-        self.api_url =  "https://repository.library.noaa.gov/fedora/export/download/collection/noaa:"
+        self.api_url =  "https://repository.library.noaa.gov/fedora/export/download/collection/"
         self.date_params = {}
 
 
@@ -77,9 +77,9 @@ class RepositoryQuery():
         return self.date_params
 
 
-    def get_collection_json(self,pid):
+    def get_single_collection_json(self,pid):
         """
-        IR collection is queried via REST API.
+        IR collection dataset is queried via REST API.
 
         Parameters:
             pid: collection pid
@@ -87,7 +87,7 @@ class RepositoryQuery():
         Returns:
             Response header and Documents from an IR collection in JSON.
         """
-        # set instance attribute, automatically convert ints
+
         self.pid = str(pid)
 
         full_url = self.api_url + check_pid(self.pid_dict, self.pid)
@@ -95,7 +95,23 @@ class RepositoryQuery():
         return r.json()
 
 
-    def filter_collection_data(self, json_data):
+    def get_all_collections_json(self):
+        """
+        Enter IR dataset is queried via REST API.
+
+        Duplicate item entries are listed in dataset as items
+        are found in multiple collections
+
+        Returns:
+            Resonse header and entire Dataset collection in JSON.
+        """
+
+        full_url = f'{self.api_url}noaa'
+        r = check_url(full_url, params=self.date_params) # helper function
+        return r.json()
+
+
+    def filter_on_field(self, json_data):
         """
         Filters JSON based on fields list passed into function.
 
@@ -106,43 +122,48 @@ class RepositoryQuery():
             Documents of from an IR collection in JSON
         """
 
-        all_field_data = []
-
-        # fields is an attribute
-        for field in self.fields:
-            # call transform_json_data function
-            all_field_data.append(transform_json_data(json_data, field))
+        docs = json_data['response']['docs']
 
         self.collection_data = []
 
-        while all_field_data: # loop though field data until list is 0
-
-            interleaved_field_data = []
-
-            try:
-                for item in all_field_data:
-                    field = item.pop()
-                    interleaved_field_data.append(field)
-            except IndexError: # silences error caused by list running out
-                break
-
-            self.collection_data.append(interleaved_field_data)
+        for doc in docs:
+            self.collection_data.append(
+                field_iterator(doc, self.fields))
 
         return self.collection_data
 
 
-    def get_all_ir_data(self):
+    def search_field(self, field, search_value):
         """
-        Get data all collection data in IR.
+        Search on collection data.
 
-        Utilize generator function to call function to
-        retrieve all IR collections.
+        Collection data must already be pull and stored in
+        collection data instance variable. Exception will be thrown if not.
+
+        Simple search is performed on selected field.
+        Search is converted to lower lower as is field to be searched on.
+
+        Parameters:
+            field: field to be searched on
+            search_value: value that searches against field
 
         Returns:
-            All collection data in JSON.
+            list of dicts.
         """
-        for collection in self.pid_dict.values():
-            yield self.get_collection_json(collection)
+
+        if len(self.collection_data) == 0:
+            raise Exception('No Collection data present. Make sure to pull data (single collection or entire dataset)')
+
+        result_list = []
+
+        for record in self.collection_data:
+            try:
+                if search_value.lower() in record[field].lower():
+                    result_list.append(record)
+            except KeyError:
+                raise Exception('field not present. Check your RepositoryQuery instance fields')
+
+        return result_list
 
 
 class DataExporter():
@@ -171,28 +192,22 @@ class DataExporter():
         # creates directory if it doesn't exists
         make_dir(export_path)
 
-        data = repository_query.get_collection_json(collection_pid)
-        records = repository_query.filter_collection_data(data)
+        data = repository_query.get_single_collection_json(collection_pid)
+        records = repository_query.filter_on_field(data)
 
-        with open(
-            os.path.join(export_path,col_fname),'w', newline='',
-            encoding='utf-8') as fh:
+        collection_full_path = os.path.join(export_path, col_fname)
 
-            csvfile = csv.writer(fh,
-                delimiter='\t',
-                quoting=csv.QUOTE_NONE,
-                quotechar='')
-
-            csvfile.writerow(repository_query.fields)
-            for row in records:
-                csvfile.writerow(row)
+        delimiter = '\t'
+        write_dict_list_to_csv(records,collection_full_path,
+            delimiter, repository_query.fields)
 
 
     def export_all_collections_as_csv(self, repository_query, all_ir_data,
         export_path='.'):
         """
-        Creates a deduplicated title and link list of all
-        items in the IR.
+        Creates a unique file of all its in the IR.
+
+        List of Python Dictionaries written to CSV.
 
         Parameters:
             repository_query: ReposistoryQuery class instance
@@ -204,8 +219,12 @@ class DataExporter():
         Returns:
             CSV of all IR collections.
         """
-        # creates directory if it doesn't exists
+
+         # creates directory if it doesn't exists
         make_dir(export_path)
+
+        data = repository_query.get_all_collections_json()
+        records = repository_query.filter_on_field(data)
 
         # calls api.get method  which call JSON API to retrieve all collections
         collections_file = "noaa_collections_" + self.date_info
@@ -214,63 +233,35 @@ class DataExporter():
         deduped_collections_full_path = os.path.join(export_path,
             deduped_collections_file)
 
-        with open(collections_full_path, 'w',
-            newline='', encoding='utf-8') as fh:
-
-            csvfile = csv.writer(fh,
-                delimiter='\t',
-                quoting=csv.QUOTE_NONE,
-                quotechar='')
-
-            # loop through all reposistory data
-            for collection in all_ir_data:
-                # call RepositoryQuery method filter_collection_data'
-                records = repository_query.filter_collection_data(collection)
-                for row in records:
-                    csvfile.writerow(row)
+        delimiter = '\t'
+        write_dict_list_to_csv(records, collection_full_path,
+            delimiter, repository_query.fields)
 
         # deduplicate files
-
         f = list(set(open(collections_full_path,encoding='utf-8').readlines()))
-        f.insert(0,'|'.join(repository_query.fields) + '\n')
+        f.insert(0,delimter.join(repository_query.fields) + '\n')
         open(deduped_collections_full_path,'w', encoding='utf-8').writelines(f)
         os.remove(collections_full_path)
 
 
-def transform_json_data(json_data, field):
+def field_iterator(json_data, fields):
     """
-    Transform JSON data into a list.
+    Helper function.
 
-    A Helper function used in combination with 'filter_collection_data'
-    by passing into the said function as an argument.
-
-    Parameters:
-        json_data: JSON collection data
-        field: field from api
-
-    Returns:
-        List of collection data.
+    Return dict
     """
 
-    filtered_data = []
+    data_dict = {}
 
-    docs = json_data['response']['docs']
+    for field in fields:
+        if json_data.get(field) is None:
+            data_dict.update({field: ''})
+        elif isinstance(json_data.get(field), list):
+            data_dict.update({field: clean_text(';'.join(json_data.get(field)))})
+        else:
+            data_dict.update({field: clean_text(json_data.get(field))})
 
-    for doc in docs:
-        try:
-            # if field is instance join with semicolon
-            if isinstance(doc[field], list):
-                filtered_data.append(';'.join(doc[field]))
-            else:
-                # remove new lines, carriage returns and noaa:
-                doc[field] = doc[field].replace('\n','').replace('\r', '')
-                doc[field] = doc[field].replace('noaa:','')
-                filtered_data.append(doc[field])
-        except KeyError:
-            doc[field] = ''
-            filtered_data.append(doc[field])
-
-    return filtered_data
+    return data_dict
 
 
 def check_url(url,params=None):
@@ -322,32 +313,42 @@ def make_dir(filepath):
         os.mkdir(filepath)
 
 
-def date_param_format(date):
+def clean_text(text):
     """
-    Check if date param format is valid.
-
-    format: 'YYYY-MM-DDT00:00:00Z'
-
+    Clean text data.
     """
-    try:
-        datetime.strptime(date, '%Y-%m-%d')
-    except ValueError:
-        raise ValueError("Incorrect data format, should be YYYY-MM-DD")
-    finally:
-        return date
+    text = text.replace('\n', '').replace('\r','')
+    return text
+
+
+def write_dict_list_to_csv(dict_li,file_path, delimiter, fieldnames):
+    """
+    Write Python dict list to CSV
+
+    Parameters:
+        dict_li: Python list of dictionaries
+        file_path: abs or relative file path. use to save CSV
+        delimiter: choose type of delimiter
+        fieldnames: function utilizes csv.DictWriter. Currently
+        written to require header.
+    """
+
+    with open(file_path, 'w',
+        newline='', encoding='utf-8') as fh:
+
+        # list of dictionaries written to CSV
+        csvfile = csv.DictWriter(fh,
+            delimiter=delimiter,
+            fieldnames=fieldnames
+            )
+
+        csvfile.writeheader()
+        csvfile.writerows(dict_li)
 
 
 if __name__ == "__main__":
-    import csv
-    # example
-    fields = ['PID', 'mods.title', 'mods.type_of_resource',
-        'fgs.createdDate', 'mods.sm_digital_object_identifier',
-        'mods.related_series', 'mods.sm_localcorpname']
-
+    fields = [ 'PID', 'mods.title','mods.type_of_resource',
+    'fgs.createdDate','mods.sm_digital_object_identifier',
+    'mods.related_series', 'mods.sm_localcorpname']
     q = RepositoryQuery(fields)
-    # q.date_filter('2020-07-01')
-
-
     de = DataExporter()
-    # de.export_collection_as_csv(q,'3')
-    # de.export_all_collections_as_csv(q, q.get_all_data())

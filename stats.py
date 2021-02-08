@@ -15,8 +15,9 @@ class StatsData():
     baseurl = 'https://repository.library.noaa.gov/fedora/export/download/collection/noaa:'
 
     #instance variables
-    def __init__(self, *resource, pid_info=None):
+    def __init__(self,data_type, *resource ,pid_info=None):
         # pid info
+        self.data_type = data_type
         self.pid_info = pid_info
 
         if len(resource) == 1:
@@ -64,13 +65,12 @@ class StatsData():
         return df
 
 
-    def facet_count_single(self,df,df_type, normalize=None):
+    def facet_count_single(self,df, normalize=None):
         """
         Provides facet count for individual collections.
 
         Parameters:
             df: Pandas dataframe.
-            df_type: choice between 'api' or 'export'. passed as arg into
             split_facets .
         """
 
@@ -85,7 +85,7 @@ class StatsData():
             # ensures values are converted from strings from list
             df = convert_df_list_to_str(df, 'mods.sm_localcorpname').copy()
 
-            split_df = split_facets(df, 'mods.sm_localcorpname', df_type)
+            split_df = split_facets(df, 'mods.sm_localcorpname', self.data_type)
 
             facet_count = pd.melt(split_df)['value'].value_counts()
 
@@ -109,12 +109,16 @@ class StatsData():
             # ensures values are converted from strings from list
             df = convert_df_list_to_str(df, 'mods.sm_localcorpname').copy()
 
-            split_df = split_facets(df, 'mods.sm_localcorpname')
+            split_df = split_facets(df, 'mods.sm_localcorpname', self.data_type)
 
             # joins split and df on index
-            join_df = split_df.join(df['PID'])
+            if self.data_type == 'api':
+                pid = 'PID'
+            else:
+                pid = 'fedora_id'
 
-            melt_df = me = pd.melt(join_df, id_vars='PID')
+            join_df = split_df.join(df[pid])
+            melt_df = me = pd.melt(join_df, id_vars=pid)
 
             melt_df = melt_df.drop(columns=['variable'])
 
@@ -230,7 +234,7 @@ def convert_df_list_to_str(df, resource):
     return df
 
 
-def split_facets(df, resource, df_type):
+def split_facets(df, resource, data_type):
     """
     Split facets into a their own separate columns.
     Parameters:
@@ -239,21 +243,18 @@ def split_facets(df, resource, df_type):
     """
 
     # update delimiter between facets
-    if df_type == 'api':
-
+    if data_type == 'api':
         df[resource] = df[resource].str.replace(", "," ")
         df[resource] = df[resource].str.replace(",","; ")
 
         return df[resource].str.split('; ',expand=True)
 
-    elif df_type == 'export':
-
+    else:
         df[resource] = df[resource].str.replace("\n","; ")
         # df[resource] = df[resource].str.replace(",","; ")
 
         return df[resource].str.split('; ',expand=True)
-    else:
-        raise Exception('df type must be either "api" or "export"')
+
 
 
 def get_pid(value, pid_info):
@@ -288,15 +289,14 @@ def normalize_data(value):
 
 if __name__ == "__main__":
     pass
-    s = StatsData('mods.sm_localcorpname',
+    s = StatsData('export','mods.sm_localcorpname',
         pid_info={
         'NMFS': '5',
         'NOS': '8',
         'OAR': '7',
         'NWS':'6',
         'NESDIS':'9',
-        'CIs': '23649'
-        })
+        'CIs': '23649'})
 
     # df = s.get_df('6')
     # df.loc[~df[s.resource].str.contains(
