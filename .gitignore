@@ -5,3 +5,5 @@ __pycache__/
 *.xlsx
 *.zip
 *.xlsx
+article_monthly_update.py
+quarterly_report/**

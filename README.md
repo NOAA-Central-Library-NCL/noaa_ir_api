@@ -8,9 +8,14 @@
 The following Python scripts allow you to interact with the NOAA IR JSON API, either
 directly or indirectly.
 
+
+### API Query
+
+api_query.py is comprised to Classes - RepositoryQuery, DataExporter - and provides you the ability to either download and filter fields, as well as export downloaded data.
+
 ### CLI Menu
 
-This tool provides a menu to view individual collections as well as download all items from IR. All libraries used within the files are built-ins, with the exception of requests.
+This CLI tool provides a menu to download individual collections or all items from the IR. All libraries used within the files are built-ins, with the exception of requests.
 
 #### Usage
 
@@ -31,9 +36,3 @@ You can also use ```api_query.py``` which menu.py uses as to retrieve data from 
 Use ```stats.py``` to call to NOAA IR's JSON API using the requests library and transform collections into pandas DataFrames enabling quick analysis.
 
 Methods have been written to enable facet analysis, which can be tricky as the NOAA IR JSON API packs multiple values into a single field.
-
-### CDC Article Monthly Update Stats
-
-Use ```article_monthly_update.py``` stats to generate additional usage stats for
-NOAA IR items. Combine this output with ```api_query.py``` or ```stats.py``` to
-generate custom reports for stakeholders.
