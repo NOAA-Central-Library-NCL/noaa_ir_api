@@ -5,5 +5,8 @@ __pycache__/
 *.xlsx
 *.zip
 *.xlsx
+*.json
+*.toml
 article_monthly_update.py
 quarterly_report/**
+ir_opt/**
