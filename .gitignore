@@ -1,5 +1,6 @@
 __pycache__/
 *.csv
+*.txt
 *.png
 *.db
 *.xlsx
@@ -10,3 +11,4 @@ __pycache__/
 article_monthly_update.py
 quarterly_report/**
 ir_opt/**
+parse_authors.py

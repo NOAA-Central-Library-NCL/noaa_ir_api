@@ -46,7 +46,15 @@ class RepositoryQuery():
         self.api_url =  "https://repository.library.noaa.gov/fedora/export/view/collection/"
         self.fields = fields
         self.pid = ''
-        self.collection_data = []   
+        self.collection_data = []
+        self.date_params = None
+
+    def add_date_filtering(self):
+        """
+        Method adds date params dictionary to empty date params 
+        """
+
+        self.date_params = create_date_filter_params(data['date_params'])
 
         
     def get_single_collection(self,pid):
@@ -68,8 +76,8 @@ class RepositoryQuery():
         self.pid = str(pid)
 
         check_pid(self.pid_dict, self.pid)
-        row_total = get_row_total(self.api_url, self.pid) # function
-        api_url_info = iterate_rows(self.api_url, self.pid, row_total)
+        row_total = get_row_total(self.api_url, self.pid, self.date_params) 
+        api_url_info = iterate_rows(self.api_url, self.pid, row_total, self.date_params)
 
         # call concat_json function
         self.collection_data = concat_json(api_url_info)
@@ -91,8 +99,8 @@ class RepositoryQuery():
         """
 
         all_ir_json = 'noaa'
-        row_total = get_row_total(self.api_url, all_ir_json) # function
-        api_url_info = iterate_rows(self.api_url, all_ir_json, row_total)
+        row_total = get_row_total(self.api_url, all_ir_json, self.date_params)
+        api_url_info = iterate_rows(self.api_url, all_ir_json, row_total, self.date_params)
 
         # call concat_json function
         self.collection_data = concat_json(api_url_info)
@@ -210,6 +218,7 @@ class RepositoryQuery():
         self.filter_on_fields()
 
         collection_full_path = os.path.join(export_path, f"{col_fname}.{filetype}")
+        print(collection_full_path)
 
         #export data
         # as CSV
@@ -245,7 +254,7 @@ class RepositoryQuery():
         Returns:
             CSV or JSON of all items.
         """
-        
+
         # creates directory if it doesn't exists
         make_dir(export_path)
         
@@ -254,6 +263,7 @@ class RepositoryQuery():
         self.filter_on_fields()
 
         collection_full_path = os.path.join(export_path, f"{col_fname}.{filetype}")
+        print(collection_full_path)
 
         #export data
         # as CSV
@@ -298,7 +308,7 @@ def field_iterator(json_data, fields):
     return data_dict
 
 
-def make_request(url,params=None):
+def make_request(url):
     """
     Make request. Check for 200 status code. If not exit
     script with sys.exit.  
@@ -310,13 +320,14 @@ def make_request(url,params=None):
         Returns response, if not returns
         message and quit program.
     """
-    r = requests.get(url,params=params)
+
+    r = requests.get(url)
     if r.status_code != 200:
         return 'status code did not return 200'
     return r
 
 
-def get_row_total(api_url, pid):
+def get_row_total(api_url, pid, date_params):
     """
     Get row total from collection. 
 
@@ -324,25 +335,32 @@ def get_row_total(api_url, pid):
     including entire NOAA IR collection.
     """
 
-    r = requests.get(f'{api_url}{pid}')
+    # conditional is based on whether the option
+    # was selected to use class method of 'add filter'
+    if date_params is None:
+        r = requests.get(f'{api_url}{pid}')
+    else:
+        r = requests.get(f'{api_url}{pid}?{date_params}')
+
     if r.status_code != 200:
         return 'status code did not return 200'
     data = r.json()
     return data['response']['numFound']
 
 
-def iterate_rows(api_url, col_pid, row_total, row_num=5000): 
+def iterate_rows(api_url, col_pid, row_total, date_params, row_num=5000): 
     """
     If total number of rows is less than 
     chunk val a list of URLS is generated with 
     a num appended with a query string
     """
 
-    # append collection col_pid to api_url
-    url = f'{api_url}{col_pid}'
+    url_base = api_url_base_constructor(api_url, col_pid)
 
     if row_total < row_num:
-        return f'{url}?rows={row_total}'
+        # conditional is based on whether the option
+        # was selected to use class method of 'add filter'
+        return f'{url_base}?rows={row_total}&{date_params}'
     else:
         chunk_array = split_equal(row_total, row_num)
         # insert 0 at beginning of list
@@ -350,11 +368,19 @@ def iterate_rows(api_url, col_pid, row_total, row_num=5000):
         cumsum_chunk_array = list(accumulate(chunk_array))
 
         chunk_link_array = []
+
         for chunk in cumsum_chunk_array:
             if chunk != row_total:
-                chunk_link_array.append(
-                    f'{url}?rows={str(row_num)}&start={str(chunk)}')
+                if date_params is None:
+                    # chunk url conditional is based on whether the option
+                    # was selected to use class method of 'add filter'
+                    chunk_url = f'{url_base}?rows={str(row_num)}&start={str(chunk)}'
+                    chunk_link_array.append(chunk_url)
+                else:
+                    chunk_url = f'{url_base}&rows={str(row_num)}&start={str(chunk)}'
+                    chunk_link_array.append(chunk_url)
                 continue
+
         return chunk_link_array
 
     
@@ -460,6 +486,27 @@ def write_dict_list_to_csv(dict_li,file_path, delimiter, fieldnames):
         csvfile.writeheader()
         csvfile.writerows(dict_li) 
 
+def api_url_base_constructor(api_url, col_pid):
+    """
+    helper function used to  
+    construct an api_url base using api_url and col_pid
+
+    returns an URL string
+    """
+
+    return f'{api_url}{col_pid}'
+
+
+def create_date_filter_params(date_dict):
+    """
+    Create 'from' & 'until' date filter params that
+    can be added to initial NOAA IR API request in order to filter on request. 
+    Filter is applied to fgs.modifieddate field.
+    """
+
+    return f"from={date_dict['from']}T00:00:00Z&until={date_dict['until']}T00:00:00Z"
+
+
 def read_toml_file(toml_file):
     """
     helper function to read toml file.
@@ -481,10 +528,17 @@ if __name__ == "__main__":
     data = read_toml_file(f_name)
     # instantiate class 
     q = RepositoryQuery(data['fields'])
-    # use class methods to either export single collection all items from IR
-    # CSV is the default file format, but you can specify json for that format
-    q.export_single_collection('1', 'json') 
+    
+    # call method IF you want to create date params
+    # date param information is stored in toml file.
+    # do not use method if you want unfiltered report.
+    #q.add_date_filtering()
+
+    #use class methods to either export single collection all items from IR
+    #CSV is the default file format, but you can specify json for that format
+    #q.export_single_collection('5', 'csv') 
+    
     # to export entire collection...
     # no args are required, but optional include args include filepath, filename,
     # and filetype (CSV, JSON) 
-    q.export_all_items()
+    q.export_all_items('json', col_fname="all_items_02-11-2025")
