@@ -201,11 +201,10 @@ class RepositoryQuery():
         Export single repository collection data to CSV or JSON.
 
         Parameters:
-            reposistory_query: ReposistoryQuery class instance
-            filetype: CSV or JSON. CSV is default export.
-            export_path: path to download collection file to. Default is
-                set to current working directory
-            col_fname: filename 
+            pid: collection pid. can also be 'noaa' if entire colleciton.
+            filetype: 'csv' by default arg. 'json' as optional output.
+            export_path: '.', or current path is default arg.
+            col_fname: filename. 'noaa_collection_YYYY_MM_DD' is default arg.
 
         Returns:
             CSV or JSON of a single IR collection.
@@ -245,11 +244,10 @@ class RepositoryQuery():
         Exports all repository items data to CSV or JSON.
 
         Parameters:
-            reposistory_query: ReposistoryQuery class instance
-            filetype: CSV or JSON. CSV is default export.
-            export_path: path to download collection file to. Default is
-                set to current working directory
-            col_fname: filename
+            pid: collection pid. can also be 'noaa' if entire colleciton.
+            filetype: 'csv' by default arg. 'json' as optional output.
+            export_path: '.', or current path is default arg.
+            col_fname: filename. 'noaa_collection_YYYY_MM_DD' is default arg.
 
         Returns:
             CSV or JSON of all items.
@@ -330,6 +328,12 @@ def make_request(url):
 def get_row_total(api_url, pid, date_params):
     """
     Get row total from collection. 
+
+    Parameters:
+        api_url: api url string
+        pid: collection pid. can also be 'noaa' if entire colleciton.
+        date_parameters: string formatted as 
+            'from=MMMM-YY-DDT00:00:00Z&until=MMMM-YY-DDT00:00:00Z'
 
     Returns row total for each collection, 
     including entire NOAA IR collection.
@@ -530,15 +534,15 @@ if __name__ == "__main__":
     q = RepositoryQuery(data['fields'])
     
     # call method IF you want to create date params
-    # date param information is stored in toml file.
+    # date param information is stored in fields toml file.
     # do not use method if you want unfiltered report.
-    #q.add_date_filtering()
+    q.add_date_filtering()
 
     #use class methods to either export single collection all items from IR
     #CSV is the default file format, but you can specify json for that format
-    #q.export_single_collection('5', 'csv') 
+    q.export_single_collection('5', 'csv') 
     
     # to export entire collection...
     # no args are required, but optional include args include filepath, filename,
     # and filetype (CSV, JSON) 
-    q.export_all_items('json', col_fname="all_items_02-11-2025")
+    #q.export_all_items('json')
