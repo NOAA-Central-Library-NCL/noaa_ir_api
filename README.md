@@ -6,6 +6,12 @@ This repository is a scientific product and is not official communication of the
 
 The following Python scripts allow you to interact with the NOAA IR JSON API.
 
+### IR API overview
+
+For a general overview of the NOAA IR API, visit the following Github repo: https://github.com/NOAA-Central-Library-NCL/NOAA_IR/.
+
+This repo will be of use if you are looking to create a customized script the NOAA IR REST API. There are also some basic examples in provided in Python.
+
 ### API Query script
 
 Use `api_query.py` to query NOAA IR records, downloading a single collection or entire IR collection as a whole. Additionally, in doing so, you utilize `fields.toml` file to filter for specific IR API fields. A date range filter method is also available for limiting your search of records **from** a formated YYYY-DD-MM date **until** formatted YYYY-DD-MM date.
@@ -15,7 +21,6 @@ If you wish to download a single IR collection or entire IR collection as a whol
 ##### `fields.toml`
 
 Use `fields.toml` field to pass in specific fields you wish to parse as well as optional date parameters. `fields.toml` is first passed in a command line argument, then passed in an parameter to the `RepositoryQuery` class during instantiation. 
-
 
 ### IR fields
 
